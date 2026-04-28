@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>MindCare | Современная психология онлайн</title>
+    <!-- Tailwind CSS Core + Lucide CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- React & ReactDOM CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        /* Custom keyframe animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        @keyframes float-delayed {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(-5deg); }
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-float { animation: float 8s ease-in-out infinite; }
+        .animate-float-delayed { animation: float-delayed 10s ease-in-out infinite; }
+        .animate-pulse-glow { animation: pulse-glow 4s ease-in-out infinite; }
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); background-size: 200% 200%; animation: gradient-shift 4s ease infinite; }
+        .glass-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.05); }
+        .hover-glow:hover { box-shadow: 0 0 25px rgba(139, 92, 246, 0.3); }
+        .fade-up {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s cubic-bezier(0.2, 0.9, 0.4, 1.1), transform 0.8s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+        }
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .stagger-item {
+            transition-delay: calc(var(--stagger-index) * 0.1s);
+        }
+        html {
+            scroll-behavior: smooth;
+        }
+        body {
+            background-color: #08080f;
+            overflow-x: hidden;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // Компонент анимированного счётчика
+        const AnimatedCounter = ({ end, suffix = '', duration = 2000 }) => {
+            const [count, setCount] = useState(0);
+            const [hasAnimated, setHasAnimated] = useState(false);
+            const ref = useRef(null);
+            
+            useEffect(() => {
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting && !hasAnimated) {
+                            setHasAnimated(true);
+                            let start = 0;
+                            const increment = end / (duration / 16);
+                            const timer = setInterval(() => {
+                                start += increment;
+                                if (start >= end) {
+                                    setCount(end);
+                                    clearInterval(timer);
+                                } else {
+                                    setCount(Math.floor(start));
+                                }
+                            }, 16);
+                            return () => clearInterval(timer);
+                        }
+                    },
+                    { threshold: 0.5 }
+                );
+                if (ref.current) observer.observe(ref.current);
+                return () => observer.disconnect();
+            }, [end, duration, hasAnimated]);
+            
+            return <span ref={ref}>{count}{suffix}</span>;
+        };
+        
+        // Компонент карточки с анимацией появления
+        const FadeInSection = ({ children, delay = 0, className = "" }) => {
+            const [isVisible, setIsVisible] = useState(false);
+            const ref = useRef(null);
+            
+            useEffect(() => {
+                const observer = new IntersectionObserver(
+                    ([entry]) => {
+                        if (entry.isIntersecting) {
+                            setIsVisible(true);
+                            observer.disconnect();
+                        }
+                    },
+                    { threshold: 0.1 }
+                );
+                if (ref.current) observer.observe(ref.current);
+                return () => observer.disconnect();
+            }, []);
+            
+            return (
+                <div
+                    ref={ref}
+                    className={`transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'} ${className}`}
+                    style={{ transitionDelay: `${delay}ms` }}
+                >
+                    {children}
+                </div>
+            );
+        };
+        
+        // Компонент аккордеона для FAQ
+        const AccordionItem = ({ question, answer, isOpen, onClick }) => {
+            const ChevronDown = lucide.ChevronDown;
+            return (
+                <div className="border-b border-white/10">
+                    <button
+                        onClick={onClick}
+                        className="w-full py-6 flex justify-between items-center text-left group"
+                    >
+                        <span className="text-lg font-semibold text-white group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-purple-400 group-hover:to-pink-400 group-hover:bg-clip-text transition-all duration-300">
+                            {question}
+                        </span>
+                        <ChevronDown
+                            className={`w-5 h-5 text-purple-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                        />
+                    </button>
+                    <div
+                        className={`overflow-hidden transition-all duration-300 ${isOpen ? 'max-h-48 pb-6' : 'max-h-0'}`}
+                    >
+                        <p className="text-gray-400 leading-relaxed">{answer}</p>
+                    </div>
+                </div>
+            );
+        };
+        
+        // Основной компонент приложения
+        const PsychologyLandingPage = () => {
+            const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+            const [scrolled, setScrolled] = useState(false);
+            const [billingCycle, setBillingCycle] = useState('monthly');
+            const [openFaqIndex, setOpenFaqIndex] = useState(null);
+            
+            // Иконки из lucide
+            const {
+                Brain, Sparkles, Shield, Users, Target, Heart, Star, ChevronRight,
+                Check, ChevronDown, Menu, X, ArrowRight, Mail, Phone,
+                MessageSquare, TrendingUp, Clock, Award, Globe, Twitter, Linkedin,
+                Instagram, Facebook, Zap, Leaf, Compass, Umbrella, Moon, SunMedium,
+                ClipboardList, UsersRound, CalendarHeart
+            } = lucide;
+            
+            // Обработка скролла для navbar
+            useEffect(() => {
+                const handleScroll = () => {
+                    setScrolled(window.scrollY > 50);
+                };
+                window.addEventListener('scroll', handleScroll);
+                return () => window.removeEventListener('scroll', handleScroll);
+            }, []);
+            
+            // Плавный скролл
+            const scrollToSection = (id) => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth' });
+                    setMobileMenuOpen(false);
+                }
+            };
+            
+            const pricingPlans = [
+                {
+                    name: 'Базовый',
+                    price: billingCycle === 'monthly' ? 49 : 39,
+                    period: billingCycle === 'monthly' ? '/месяц' : '/месяц при оплате за год',
+                    features: ['2 сессии в месяц', 'Чат с психологом', 'Базовые упражнения', 'Дневник эмоций'],
+                    popular: false
+                },
+                {
+                    name: 'Премиум',
+                    price: billingCycle === 'monthly' ? 99 : 79,
+                    period: billingCycle === 'monthly' ? '/месяц' : '/месяц при оплате за год',
+                    features: ['8 сессий в месяц', 'Видеозвонки', 'Персональный план', 'Доступ к курсам', 'Приоритетная поддержка'],
+                    popular: true
+                },
+                {
+                    name: 'Безлимит',
+                    price: billingCycle === 'monthly' ? 199 : 159,
+                    period: billingCycle === 'monthly' ? '/месяц' : '/месяц при оплате за год',
+                    features: ['Безлимитные сессии', 'Весь функционал премиум', 'Экспресс-сессии 24/7', 'Семейный доступ'],
+                    popular: false
+                }
+            ];
+            
+            const faqs = [
+                { question: 'Как выбрать подходящего психолога?', answer: 'Мы используем AI-алгоритмы для подбора специалиста на основе ваших целей и предпочтений. Вы также можете просмотреть профили и выбрать психолога самостоятельно.' },
+                { question: 'Насколько конфиденциальны сессии?', answer: 'Все сессии полностью зашифрованы и анонимны. Мы соблюдаем строгие стандарты конфиденциальности и никогда не передаем ваши данные третьим лицам.' },
+                { question: 'Могу ли я сменить психолога?', answer: 'Да, вы можете сменить психолога в любой момент бесплатно. Важно, чтобы вы чувствовали комфорт и доверие к специалисту.' },
+                { question: 'Есть ли пробный период?', answer: 'Мы предлагаем 7-дневный пробный период со скидкой 50% на первый тариф. Вы можете оценить все возможности платформы.' },
+                { question: 'Подходит ли это для парной терапии?', answer: 'Да, у нас есть специалисты по парной терапии. Для этого подойдет тариф "Безлимит", который включает семейный доступ.' },
+                { question: 'Как отменить подписку?', answer: 'Отменить подписку можно в один клик в личном кабинете. Никаких скрытых комиссий и штрафов.' }
+            ];
+            
+            const testimonials = [
+                { name: 'Анна К.', role: 'Менеджер', text: 'Платформа изменила мою жизнь! За 3 месяца я научилась справляться с тревогой и стала увереннее.', rating: 5, initials: 'АК' },
+                { name: 'Дмитрий В.', role: 'Предприниматель', text: 'Удобный формат, отличные специалисты. Рекомендую всем, кто хочет работать над собой.', rating: 5, initials: 'ДВ' },
+                { name: 'Елена М.', role: 'Врач', text: 'Наконец-то нашла своего психолога. Результаты превзошли ожидания.', rating: 5, initials: 'ЕМ' }
+            ];
+            
+            return (
+                <div className="min-h-screen bg-[#08080f] text-white font-sans overflow-x-hidden">
+                    {/* Фоновые анимированные элементы */}
+                    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute top-20 -left-20 w-96 h-96 bg-purple-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-float"></div>
+                        <div className="absolute top-40 right-20 w-80 h-80 bg-pink-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-float-delayed"></div>
+                        <div className="absolute bottom-20 left-1/3 w-96 h-96 bg-indigo-600 rounded-full mix-blend-multiply filter blur-[128px] opacity-20 animate-float" style={{ animationDelay: '2s' }}></div>
+                        <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"%3E%3Ccircle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.05)" /%3E%3C/svg%3E')] bg-repeat opacity-50"></div>
+                    </div>
+                    
+                    {/* Navbar */}
+                    <nav className={`fixed top-0 w-full z-50 transition-all duration-300 ${scrolled ? 'glass-card backdrop-blur-xl py-3 shadow-xl' : 'py-5'}`}>
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-2 cursor-pointer group" onClick={() => scrollToSection('hero')}>
+                                    <Brain className="w-8 h-8 text-purple-400 transition-transform group-hover:scale-110 duration-300" />
+                                    <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">MindCare</span>
+                                </div>
+                                
+                                {/* Desktop Menu */}
+                                <div className="hidden md:flex items-center gap-8">
+                                    {['Преимущества', 'Как это работает', 'Отзывы', 'Цены'].map(item => (
+                                        <button key={item} onClick={() => scrollToSection(item.toLowerCase().replace(/\s/g, ''))} className="text-gray-300 hover:text-white transition-all duration-300 relative group">
+                                            {item}
+                                            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-300 group-hover:w-full"></span>
+                                        </button>
+                                    ))}
+                                </div>
+                                
+                                <div className="hidden md:block">
+                                    <button onClick={() => scrollToSection('cta')} className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-purple-500/25">
+                                        Начать путь
+                                    </button>
+                                </div>
+                                
+                                {/* Mobile Menu Button */}
+                                <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="md:hidden p-2 rounded-lg glass-card">
+                                    {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* Mobile Menu Drawer */}
+                        <div className={`md:hidden fixed inset-x-0 top-[73px] glass-card backdrop-blur-xl transition-all duration-300 overflow-hidden ${mobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                            <div className="flex flex-col items-center py-6 gap-4">
+                                {['Преимущества', 'Как это работает', 'Отзывы', 'Цены'].map(item => (
+                                    <button key={item} onClick={() => scrollToSection(item.toLowerCase().replace(/\s/g, ''))} className="text-gray-300 hover:text-white py-2">
+                                        {item}
+                                    </button>
+                                ))}
+                                <button onClick={() => scrollToSection('cta')} className="px-6 py-2 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 w-full max-w-[200px]">
+                                    Начать путь
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+                    
+                    {/* Hero Section */}
+                    <section id="hero" className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 relative z-10">
+                            <FadeInSection delay={0}>
+                                <div className="text-center">
+                                    <div className="inline-flex items-center gap-2 glass-card rounded-full px-4 py-2 mb-6">
+                                        <Sparkles className="w-4 h-4 text-purple-400" />
+                                        <span className="text-sm">AI-платформа для ментального здоровья</span>
+                                    </div>
+                                    <h1 className="text-5xl md:text-7xl lg:text-8xl font-bold mb-6 bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent bg-300% animate-gradient">
+                                        Твой путь к гармонии
+                                    </h1>
+                                    <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto mb-10">
+                                        Персональная психологическая поддержка 24/7. Анонимно, безопасно, эффективно.
+                                    </p>
+                                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                        <button onClick={() => scrollToSection('pricing')} className="group px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-xl flex items-center gap-2 justify-center text-lg font-semibold">
+                                            Начать бесплатно
+                                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                                        </button>
+                                        <button className="px-8 py-4 rounded-full glass-card hover:bg-white/10 transition-all duration-300 transform hover:scale-105 text-lg font-semibold border border-white/10">
+                                            Узнать больше
+                                        </button>
+                                    </div>
+                                </div>
+                            </FadeInSection>
+                        </div>
+                        
+                        {/* Floating Elements */}
+                        <div className="absolute bottom-10 left-10 w-32 h-32 bg-purple-500/20 rounded-full blur-3xl animate-float"></div>
+                        <div className="absolute top-1/3 right-10 w-40 h-40 bg-pink-500/20 rounded-full blur-3xl animate-float-delayed"></div>
+                    </section>
+                    
+                    {/* Features Section */}
+                    <section id="преимущества" className="py-24 relative">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <FadeInSection>
+                                <h2 className="text-4xl md:text-5xl font-bold text-center mb-4 bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
+                                    Почему выбирают нас
+                                </h2>
+                                <p className="text-gray-400 text-center mb-16 max-w-2xl mx-auto">
+                                    Инновационный подход к психологической поддержке, доказавший свою эффективность
+                                </p>
+                            </FadeInSection>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[
+                                    { icon: Brain, title: 'AI-подбор специалиста', desc: 'Интеллектуальный алгоритм подберет идеального психолога под ваш запрос' },
+                                    { icon: Shield, title: '100% анонимность', desc: 'Ваши данные надежно защищены. Сессии полностью конфиденциальны' },
+                                    { icon: Users, title: 'Топ-специалисты', desc: 'Только дипломированные психологи с опытом от 5 лет' },
+                                    { icon: Target, title: 'Персональный план', desc: 'Индивидуальная программа развития на основе ваших целей' },
+                                    { icon: Heart, title: 'Забота 24/7', desc: 'Круглосуточная поддержка и экстренные сессии' },
+                                    { icon: TrendingUp, title: 'Измеримый прогресс', desc: 'Отслеживайте динамику с помощью умной аналитики' }
+                                ].map((feature, idx) => (
+                                    <FadeInSection key={idx} delay={idx * 100}>
+                                        <div className="glass-card rounded-2xl p-6 transition-all duration-300 hover:scale-105 hover:-translate-y-2 hover:shadow-xl hover:shadow-purple-500/20 group cursor-pointer">
+                                            <feature.icon className="w-12 h-12 text-purple-400 mb-4 group-hover:scale-110 transition-transform duration-300" />
+                                            <h3 className="text-xl font-bold mb-3 text-white">{feature.title}</h3>
+                                            <p className="text-gray-400 leading-relaxed">{feature.desc}</p>
+                                        </div>
+                                    </FadeInSection>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                    
+                    {/* Stats Section */}
+                    <section className="py-20 relative">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                                {[
+                                    { value: 50, suffix: 'K+', label: 'Активных пользователей' },
+                                    { value: 98, suffix: '%', label: 'Удовлетворенных клиентов' },
+                                    { value: 500, suffix: '+', label: 'Сертифицированных психологов' },
+                                    { value: 24, suffix: '/7', label: 'Поддержка' }
+                                ].map((stat, idx) => (
+                                    <FadeInSection key={idx} delay={idx * 100}>
+                                        <div className="text-center glass-card rounded-2xl p-8">
+                                            <div className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent mb-3">
+                                                <AnimatedCounter end={stat.value} suffix={stat.suffix} />
+                                            </div>
+                                            <p className="text-gray-400 text-lg">{stat.label}</p>
+                                        </div>
+                                    </FadeInSection>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                    
+                    {/* How It Works Section */}
+                    <section id="какэтоработает" className="py-24">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <FadeInSection>
+                                <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">Как это работает</h2>
+                                <p className="text-gray-400 text-center mb-16 max-w-2xl mx-auto">Всего 3 простых шага к новой жизни</p>
+                            </FadeInSection>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 relative">
+                                {[
+                                    { step: '01', title: 'Пройдите тест', desc: 'Ответьте на вопросы о ваших целях и предпочтениях' },
+                                    { step: '02', title: 'Получите подборку', desc: 'AI подберет 3 идеальных специалиста' },
+                                    { step: '03', title: 'Начните терапию', desc: 'Выберите удобное время для первой сессии' }
+                                ].map((step, idx) => (
+                                    <FadeInSection key={idx} delay={idx * 150}>
+                                        <div className="relative text-center group">
+                                            <div className="w-24 h-24 mx-auto mb-6 rounded-full gradient-bg flex items-center justify-center text-3xl font-bold text-white shadow-xl group-hover:scale-110 transition-transform duration-300">
+                                                {idx + 1}
+                                            </div>
+                                            <h3 className="text-2xl font-bold mb-3">{step.title}</h3>
+                                            <p className="text-gray-400">{step.desc}</p>
+                                            {idx < 2 && <div className="hidden lg:block absolute top-1/3 left-full w-full h-0.5 bg-gradient-to-r from-purple-500/50 to-transparent"></div>}
+                                        </div>
+                                    </FadeInSection>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                    
+                    {/* Testimonials Section */}
+                    <section id="отзывы" className="py-24 bg-white/5">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <FadeInSection>
+                                <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">Что говорят наши клиенты</h2>
+                                <p className="text-gray-400 text-center mb-16">Более 50 000 человек уже изменили свою жизнь</p>
+                            </FadeInSection>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {testimonials.map((testimonial, idx) => (
+                                    <FadeInSection key={idx} delay={idx * 100}>
+                                        <div className="glass-card rounded-2xl p-8 transition-all duration-300 hover:scale-105 hover:-translate-y-2">
+                                            <div className="flex items-center gap-4 mb-4">
+                                                <div className="w-12 h-12 rounded-full gradient-bg flex items-center justify-center font-bold text-lg">
+                                                    {testimonial.initials}
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-white">{testimonial.name}</h4>
+                                                    <p className="text-sm text-gray-400">{testimonial.role}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1 mb-4">
+                                                {[...Array(testimonial.rating)].map((_, i) => <Star key={i} className="w-4 h-4 fill-yellow-500 text-yellow-500" />)}
+                                            </div>
+                                            <p className="text-gray-300 leading-relaxed">"{testimonial.text}"</p>
+                                        </div>
+                                    </FadeInSection>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                    
+                    {/* Pricing Section */}
+                    <section id="цены" className="py-24">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <FadeInSection>
+                                <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">Выберите свой тариф</h2>
+                                <p className="text-gray-400 text-center mb-8">Начните с 7-дневного пробного периода со скидкой 50%</p>
+                                
+                                <div className="flex justify-center gap-4 mb-12">
+                                    <button
+                                        onClick={() => setBillingCycle('monthly')}
+                                        className={`px-6 py-2 rounded-full transition-all duration-300 ${billingCycle === 'monthly' ? 'gradient-bg text-white shadow-lg' : 'glass-card text-gray-400 hover:text-white'}`}
+                                    >
+                                        Помесячно
+                                    </button>
+                                    <button
+                                        onClick={() => setBillingCycle('yearly')}
+                                        className={`px-6 py-2 rounded-full transition-all duration-300 ${billingCycle === 'yearly' ? 'gradient-bg text-white shadow-lg' : 'glass-card text-gray-400 hover:text-white'}`}
+                                    >
+                                        Годовая скидка 20%
+                                    </button>
+                                </div>
+                            </FadeInSection>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                {pricingPlans.map((plan, idx) => (
+                                    <FadeInSection key={idx} delay={idx * 100}>
+                                        <div className={`glass-card rounded-2xl p-8 transition-all duration-300 hover:scale-105 relative ${plan.popular ? 'border-purple-500 shadow-xl shadow-purple-500/20' : ''}`}>
+                                            {plan.popular && (
+                                                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 gradient-bg text-white px-4 py-1 rounded-full text-sm font-semibold">
+                                                    Популярный
+                                                </div>
+                                            )}
+                                            <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+                                            <div className="mb-4">
+                                                <span className="text-4xl font-bold">{plan.price}₽</span>
+                                                <span className="text-gray-400">{plan.period}</span>
+                                            </div>
+                                            <ul className="space-y-3 mb-8">
+                                                {plan.features.map((feature, i) => (
+                                                    <li key={i} className="flex items-center gap-2 text-gray-300">
+                                                        <Check className="w-4 h-4 text-purple-400" />
+                                                        {feature}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                            <button className="w-full py-3 rounded-full glass-card hover:bg-white/10 transition-all duration-300 font-semibold group">
+                                                Выбрать план
+                                                <ArrowRight className="w-4 h-4 inline ml-2 group-hover:translate-x-1 transition-transform" />
+                                            </button>
+                                        </div>
+                                    </FadeInSection>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                    
+                    {/* FAQ Section */}
+                    <section id="faq" className="py-24 bg-white/5">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <FadeInSection>
+                                <h2 className="text-4xl md:text-5xl font-bold text-center mb-4">Часто задаваемые вопросы</h2>
+                                <p className="text-gray-400 text-center mb-16">Ответы на самые популярные вопросы</p>
+                            </FadeInSection>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                                {faqs.map((faq, idx) => (
+                                    <FadeInSection key={idx} delay={idx * 50}>
+                                        <AccordionItem
+                                            question={faq.question}
+                                            answer={faq.answer}
+                                            isOpen={openFaqIndex === idx}
+                                            onClick={() => setOpenFaqIndex(openFaqIndex === idx ? null : idx)}
+                                        />
+                                    </FadeInSection>
+                                ))}
+                            </div>
+                        </div>
+                    </section>
+                    
+                    {/* CTA Banner */}
+                    <section id="cta" className="py-20 relative overflow-hidden">
+                        <div className="absolute inset-0 gradient-bg opacity-90"></div>
+                        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                            <FadeInSection>
+                                <h2 className="text-4xl md:text-5xl font-bold mb-4 text-white">Готовы начать свой путь?</h2>
+                                <p className="text-xl text-white/90 mb-8">Присоединяйтесь к более чем 50 000 довольных клиентов</p>
+                                <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
+                                    <input type="email" placeholder="Ваш email" className="flex-1 px-6 py-3 rounded-full bg-white/10 backdrop-blur border border-white/20 text-white placeholder-white/50 focus:outline-none focus:border-purple-400" />
+                                    <button className="px-8 py-3 rounded-full bg-white text-purple-600 font-semibold hover:shadow-xl transition-all duration-300 transform hover:scale-105">
+                                        Начать бесплатно
+                                    </button>
+                                </div>
+                            </FadeInSection>
+                        </div>
+                        <div className="absolute left-0 bottom-0 w-64 h-64 bg-white/10 rounded-full filter blur-3xl animate-float"></div>
+                        <div className="absolute right-0 top-0 w-64 h-64 bg-white/10 rounded-full filter blur-3xl animate-float-delayed"></div>
+                    </section>
+                    
+                    {/* Footer */}
+                    <footer className="py-12 border-t border-white/10">
+                        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+                                <div className="col-span-2">
+                                    <div className="flex items-center gap-2 mb-4">
+                                        <Brain className="w-8 h-8 text-purple-400" />
+                                        <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">MindCare</span>
+                                    </div>
+                                    <p className="text-gray-400 text-sm">Доступная психологическая помощь для каждого. Твой путь к гармонии начинается здесь.</p>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold mb-4">Платформа</h4>
+                                    <ul className="space-y-2 text-sm text-gray-400">
+                                        <li><button onClick={() => scrollToSection('преимущества')} className="hover:text-white transition-colors">О нас</button></li>
+                                        <li><button onClick={() => scrollToSection('цены')} className="hover:text-white transition-colors">Цены</button></li>
+                                        <li><button className="hover:text-white transition-colors">Блог</button></li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold mb-4">Помощь</h4>
+                                    <ul className="space-y-2 text-sm text-gray-400">
+                                        <li><button className="hover:text-white transition-colors">FAQ</button></li>
+                                        <li><button className="hover:text-white transition-colors">Поддержка</button></li>
+                                        <li><button className="hover:text-white transition-colors">Контакты</button></li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 className="font-semibold mb-4">Соцсети</h4>
+                                    <div className="flex gap-4">
+                                        <Twitter className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer transition-colors" />
+                                        <Linkedin className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer transition-colors" />
+                                        <Instagram className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer transition-colors" />
+                                        <Facebook className="w-5 h-5 text-gray-400 hover:text-white cursor-pointer transition-colors" />
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-center text-gray-500 text-sm pt-8 border-t border-white/10">
+                                © 2024 MindCare. Все права защищены.
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+        
+        // Рендер приложения
+        ReactDOM.createRoot(document.getElementById('root')).render(<PsychologyLandingPage />);
+        
+        // Инициализация Lucide иконок после монтирования
+        setTimeout(() => {
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        }, 100);
+    </script>
+</body>
+</html>
